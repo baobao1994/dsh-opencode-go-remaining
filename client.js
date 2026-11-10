@@ -61,6 +61,7 @@ window.__ModuleLoader__.load({
         version: (value) => `v${value}`,
         versionsTitle: '版本历史',
         checkingVersions: '正在读取版本…',
+        updateInSettings: '设置 → 插件 里更新',
         upToDate: '已是最新',
         updateAvailable: (value) => `可更新 v${value}`,
         updateTo: (value) => `更新到 v${value}`,
@@ -73,6 +74,26 @@ window.__ModuleLoader__.load({
         noNotes: '无更新说明',
         currentTag: '当前',
         releases: '发布记录',
+        settingsLabel: 'OpenCode Go 余量',
+        settingsTitle: 'OpenCode Go 余量',
+        settingsIntro: '输入框工具行那枚胶囊的版本与更新。默认跟随 npm registry 检查新版本，装完重启 DSH 生效。',
+        rowVersion: '当前版本',
+        rowUpdate: '更新',
+        rowCheck: '检查更新',
+        rowSource: '安装来源',
+        checkNow: '检查更新',
+        checkingNow: '检查中…',
+        upToDateDesc: '已是最新版本',
+        updateReady: (value) => `有新版本：v${value}`,
+        sourceRegistry: 'npm registry',
+        sourceLocal: '本地文件夹（link / file）',
+        sourceGit: 'Git 仓库',
+        sourceTarball: '压缩包',
+        sourceUnknown: '未知',
+        lastChecked: (value) => `上次检查于 ${value}`,
+        neverChecked: '尚未检查',
+        versionHistory: '版本历史',
+        updateButton: (value) => `更新到 v${value}`,
       },
       en: {
         title: 'OpenCode Go quota',
@@ -91,6 +112,7 @@ window.__ModuleLoader__.load({
         version: (value) => `v${value}`,
         versionsTitle: 'Versions',
         checkingVersions: 'Reading versions…',
+        updateInSettings: 'update in Settings → Plugins',
         upToDate: 'Up to date',
         updateAvailable: (value) => `v${value} available`,
         updateTo: (value) => `Update to v${value}`,
@@ -103,6 +125,26 @@ window.__ModuleLoader__.load({
         noNotes: 'No notes',
         currentTag: 'current',
         releases: 'Releases',
+        settingsLabel: 'OpenCode Go quota',
+        settingsTitle: 'OpenCode Go quota',
+        settingsIntro: 'The version behind the composer pill. Checks the npm registry and reinstalls in place; restart DSH to load a new version.',
+        rowVersion: 'Installed version',
+        rowUpdate: 'Update',
+        rowCheck: 'Check for updates',
+        rowSource: 'Installed from',
+        checkNow: 'Check now',
+        checkingNow: 'Checking…',
+        upToDateDesc: 'You are on the latest version',
+        updateReady: (value) => `v${value} available`,
+        sourceRegistry: 'npm registry',
+        sourceLocal: 'Local folder (link / file)',
+        sourceGit: 'Git repository',
+        sourceTarball: 'Tarball',
+        sourceUnknown: 'Unknown',
+        lastChecked: (value) => `last checked ${value}`,
+        neverChecked: 'Not checked yet',
+        versionHistory: 'Version history',
+        updateButton: (value) => `Update to v${value}`,
       },
     };
 
@@ -142,9 +184,8 @@ window.__ModuleLoader__.load({
       anchor: null,
       /** Host answer about this package's version: { current, latest, available, ... }. */
       update: null,
-      /** Version list + notes, fetched when the history opens. */
+      /** Version list + notes, fetched by the settings page. */
       versions: null,
-      versionsOpen: false,
       versionsBusy: false,
     };
 
@@ -223,6 +264,7 @@ window.__ModuleLoader__.load({
         .then((response) => response.json())
         .then((body) => {
           if (body === null || typeof body !== 'object' || body.success === false) return;
+          if (typeof body.current !== 'string') return;
           setState({ update: body });
         })
         .catch(() => {
@@ -249,6 +291,7 @@ window.__ModuleLoader__.load({
           if (body === null || typeof body !== 'object' || body.success === false) {
             throw new Error(body?.error ?? 'versions request failed');
           }
+          if (!Array.isArray(body.versions)) throw new Error('versions request failed');
           setState({ versions: body, versionsBusy: false });
         })
         .catch(() => setState({ versions: { versions: [] }, versionsBusy: false }))
@@ -256,15 +299,6 @@ window.__ModuleLoader__.load({
           versionsInflight = null;
         });
       return versionsInflight;
-    }
-
-    /** Open or close the version history, fetching it the first time. */
-    function toggleVersions() {
-      const open = !getState().versionsOpen;
-      setState({ versionsOpen: open });
-      if (!open) return;
-      if (getState().update === null) loadUpdate(false);
-      if (getState().versions === null) loadVersions(false);
     }
 
     let updatePoll = null;
@@ -280,6 +314,7 @@ window.__ModuleLoader__.load({
           if (body === null || typeof body !== 'object' || body.success === false) {
             throw new Error(body?.error ?? 'update request failed');
           }
+          if (typeof body.current !== 'string') throw new Error('update request failed');
           setState({ update: body });
         })
         .catch((error) => {
@@ -401,36 +436,53 @@ window.__ModuleLoader__.load({
       '.ogq-foot{margin-top:8px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1);' +
       'color:var(--dsw-alias-label-secondary);font-size:11px;display:flex;justify-content:space-between;gap:8px}' +
       '.ogq-error{color:var(--dsw-alias-state-error-primary);word-break:break-word;padding:2px 0 6px}' +
-      '.ogq-vers{margin-top:6px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l1);' +
-      'display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;' +
-      'color:var(--dsw-alias-label-secondary);font-size:11px;border-radius:6px}' +
-      '.ogq-vers:hover{color:var(--dsw-alias-label-primary)}' +
-      '.ogq-vers-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-      '.ogq-vers-go{flex:none;opacity:.75;font-size:12px;line-height:1}' +
-      '.ogq-vers[data-tone="update"] .ogq-vers-text{color:var(--dsw-alias-state-success-primary);font-weight:600}' +
-      '.ogq-vers[data-tone="error"] .ogq-vers-text{color:var(--dsw-alias-state-error-primary)}' +
-      '.ogq-history{margin-top:4px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l1);' +
-      'max-height:236px;overflow-y:auto;overscroll-behavior:contain}' +
-      '.ogq-history-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px}' +
-      '.ogq-history-title{font-size:11px;font-weight:600}' +
-      '.ogq-history-empty{color:var(--dsw-alias-label-secondary);font-size:11px;padding:4px 0}' +
-      '.ogq-update-busy{font-size:11px;color:var(--dsw-alias-label-secondary)}' +
-      '.ogq-update{border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:1px 8px;' +
-      'background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;cursor:pointer}' +
-      '.ogq-update:hover{background:var(--dsw-alias-bg-layer-2)}' +
-      '.ogq-version-list{list-style:none;margin:0;padding:0}' +
-      '.ogq-version{padding:5px 0;border-top:1px dashed var(--dsw-alias-border-l1)}' +
-      '.ogq-version:first-child{border-top:none;padding-top:2px}' +
-      '.ogq-version-line{display:flex;align-items:baseline;gap:6px}' +
-      '.ogq-version-no{font-size:11px;font-weight:600}' +
-      '.ogq-version-date{color:var(--dsw-alias-label-secondary);font-size:10px;font-variant-numeric:tabular-nums}' +
-      '.ogq-version-tag{margin-left:auto;font-size:9px;line-height:1.4;padding:0 5px;border-radius:999px;' +
-      'border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}' +
-      '.ogq-version[data-current="1"] .ogq-version-no{color:var(--dsw-alias-state-success-primary)}' +
-      '.ogq-notes{margin:2px 0 0;padding-left:13px;color:var(--dsw-alias-label-secondary);' +
-      'font-size:10.5px;line-height:1.45}' +
-      '.ogq-notes li{margin:1px 0}' +
-      '.ogq-notes-empty{padding-left:0;opacity:.7}';
+      '.ogq-vers{margin-top:8px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1);' +
+      'color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.4}' +
+      '.ogq-vers[data-tone="update"]{color:var(--dsw-alias-state-success-primary);font-weight:600}' +
+      '.ogq-vers[data-tone="error"]{color:var(--dsw-alias-state-error-primary);font-weight:400}';
+
+    /** Settings-page CSS: the host's own row grammar (title 14 / desc 12 / hairline rows). */
+    const SETTINGS_CSS =
+      '.ogq-set{display:flex;flex-direction:column;gap:12px;max-width:760px;color:var(--dsw-alias-label-primary)}' +
+      '.ogq-set-title{margin:0;font-size:18px;line-height:26px;font-weight:600}' +
+      '.ogq-set-intro{margin:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}' +
+      '.ogq-set-rows{display:flex;flex-direction:column;margin-top:4px}' +
+      '.ogq-set-row{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;' +
+      'padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2)}' +
+      '.ogq-set-row-text{display:flex;flex-direction:column;gap:2px;min-width:0}' +
+      '.ogq-set-row-title{font-size:14px;line-height:22px}' +
+      '.ogq-set-row-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}' +
+      '.ogq-set-row-control{flex:none;display:flex;align-items:center;justify-content:flex-end;' +
+      'flex-wrap:wrap;gap:8px;padding-top:2px}' +
+      '.ogq-btn{font:inherit;font-size:13px;line-height:20px;height:32px;padding:0 14px;cursor:pointer;' +
+      'border-radius:var(--dsw-radius-md,8px);border:.5px solid var(--dsw-alias-border-l2);' +
+      'background:transparent;color:var(--dsw-alias-label-primary)}' +
+      '.ogq-btn:hover{background:var(--dsw-alias-bg-layer-2)}' +
+      '.ogq-btn[disabled]{opacity:.55;cursor:default}' +
+      '.ogq-btn--primary{border-color:transparent;background:var(--dsw-alias-label-primary);' +
+      'color:var(--dsw-alias-bg-base);font-weight:600}' +
+      '.ogq-btn--primary:hover{opacity:.88;background:var(--dsw-alias-label-primary)}' +
+      '.ogq-link{color:var(--dsw-alias-label-secondary);font-size:12px;text-decoration:none;' +
+      'border-bottom:.5px solid var(--dsw-alias-border-l2)}' +
+      '.ogq-link:hover{color:var(--dsw-alias-label-primary)}' +
+      '.ogq-set-history{margin-top:4px}' +
+      '.ogq-set-history-title{font-size:13px;font-weight:600;margin:0 0 4px}' +
+      '.ogq-set-version{display:flex;flex-direction:column;gap:2px;padding:10px 0;' +
+      'border-bottom:.5px solid var(--dsw-alias-border-l2)}' +
+      '.ogq-set-version:last-child{border-bottom:none}' +
+      '.ogq-set-version-line{display:flex;align-items:baseline;gap:8px}' +
+      '.ogq-set-version-no{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}' +
+      '.ogq-set-version-date{font-size:12px;color:var(--dsw-alias-label-secondary);' +
+      'font-variant-numeric:tabular-nums}' +
+      '.ogq-set-tag{margin-left:auto;font-size:11px;line-height:16px;padding:0 6px;border-radius:999px;' +
+      'border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary)}' +
+      '.ogq-set-version[data-current="1"] .ogq-set-version-no{color:var(--dsw-alias-state-success-primary)}' +
+      '.ogq-set-notes{margin:2px 0 0;padding-left:16px;font-size:12px;line-height:19px;' +
+      'color:var(--dsw-alias-label-secondary)}' +
+      '.ogq-set-empty{color:var(--dsw-alias-label-secondary);font-size:13px;padding:8px 0}' +
+      '.ogq-set-error{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}' +
+      '.ogq-set-badge{font-size:12px;line-height:18px;padding:1px 8px;border-radius:999px;' +
+      'color:var(--dsw-alias-state-success-primary);border:1px solid currentColor}';
 
     /* ------------------------------------------------------------ pill */
 
@@ -514,130 +566,27 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** One line under the numbers: this package's version and its update state. */
-    function VersionRow({ snapshot }) {
+    /** One line under the numbers — only while a newer release is waiting. */
+    function UpdateHint({ snapshot }) {
       const update = snapshot.update;
-      if (update === null) return null;
+      if (update === null || update.available !== true) return null;
       const phase = update.phase;
       const text =
         phase === 'installing'
           ? L.updating
           : phase === 'installed'
-            ? L.updateInstalled(update.installed ?? update.current)
+            ? L.updateInstalled(update.installed ?? update.latest)
             : phase === 'failed'
               ? `${L.updateFailed}：${update.error ?? ''}`
-              : update.mode === 'local'
-                ? L.localInstall
-                : update.mode === 'git'
-                  ? L.gitInstall
-                  : update.available === true
-                    ? L.updateAvailable(update.latest)
-                    : update.published === false
-                      ? L.notPublished
-                      : L.upToDate;
-      const tone =
-        update.available === true && (phase === 'idle' || phase === 'installed')
-          ? 'update'
-          : phase === 'failed'
-            ? 'error'
-            : 'plain';
-      const toggle = () => toggleVersions();
+              : `${L.updateAvailable(update.latest)} · ${L.updateInSettings}`;
       return h(
         'div',
         {
           className: 'ogq-vers',
           'data-ogq-vers': '',
-          'data-tone': tone,
-          role: 'button',
-          tabIndex: 0,
-          'aria-expanded': snapshot.versionsOpen ? 'true' : 'false',
-          title: L.versionsTitle,
-          onClick: (event) => {
-            event.stopPropagation();
-            toggle();
-          },
-          onKeyDown: (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              toggle();
-            }
-          },
+          'data-tone': phase === 'failed' ? 'error' : 'update',
         },
-        h('span', { className: 'ogq-vers-text' }, `${L.version(update.current)} · ${text}`),
-        h('span', { className: 'ogq-vers-go' }, snapshot.versionsOpen ? '▾' : '›'),
-      );
-    }
-
-    /** The expanded history: newest first, with the changelog notes and one update button. */
-    function History({ snapshot }) {
-      if (!snapshot.versionsOpen) return null;
-      const update = snapshot.update;
-      const list = snapshot.versions?.versions ?? [];
-      const installing = update !== null && update.phase === 'installing';
-      const canUpdate = update !== null && update.available === true && !installing;
-      return h(
-        'div',
-        { className: 'ogq-history', 'data-ogq-history': '' },
-        h(
-          'div',
-          { className: 'ogq-history-head' },
-          h('span', { className: 'ogq-history-title' }, L.versionsTitle),
-          installing
-            ? h('span', { className: 'ogq-update-busy' }, L.updating)
-            : canUpdate
-              ? h(
-                  'button',
-                  {
-                    type: 'button',
-                    className: 'ogq-update',
-                    onClick: (event) => {
-                      event.stopPropagation();
-                      startUpdate();
-                    },
-                  },
-                  L.updateTo(update.latest),
-                )
-              : null,
-        ),
-        update !== null && update.phase === 'failed'
-          ? h('div', { className: 'ogq-error' }, `${L.updateFailed}：${update.error ?? ''}`)
-          : null,
-        snapshot.versionsBusy || snapshot.versions === null
-          ? h('div', { className: 'ogq-history-empty' }, L.checkingVersions)
-          : list.length === 0
-            ? h('div', { className: 'ogq-history-empty' }, L.noNotes)
-            : h(
-                'ul',
-                { className: 'ogq-version-list' },
-                list.slice(0, 8).map((entry) =>
-                  h(
-                    'li',
-                    {
-                      key: entry.version,
-                      className: 'ogq-version',
-                      'data-current': update !== null && entry.version === update.current ? '1' : null,
-                    },
-                    h(
-                      'div',
-                      { className: 'ogq-version-line' },
-                      h('b', { className: 'ogq-version-no' }, L.version(entry.version)),
-                      typeof entry.date === 'string' && entry.date !== ''
-                        ? h('span', { className: 'ogq-version-date' }, entry.date.slice(0, 10))
-                        : null,
-                      update !== null && entry.version === update.current
-                        ? h('span', { className: 'ogq-version-tag' }, L.currentTag)
-                        : null,
-                    ),
-                    Array.isArray(entry.notes) && entry.notes.length > 0
-                      ? h(
-                          'ul',
-                          { className: 'ogq-notes' },
-                          entry.notes.map((note, index) => h('li', { key: index }, note)),
-                        )
-                      : h('div', { className: 'ogq-notes ogq-notes-empty' }, L.noNotes),
-                  ),
-                ),
-              ),
+        text,
       );
     }
 
@@ -698,8 +647,182 @@ window.__ModuleLoader__.load({
           h('span', null, typeof data?.source === 'string' ? L.via(data.source) : ''),
           h('span', null, fetched === '' ? '' : L.updated(fetched)),
         ),
-        h(VersionRow, { snapshot }),
-        h(History, { snapshot }),
+        h(UpdateHint, { snapshot }),
+      );
+    }
+
+    /* --------------------------------------------------------- settings */
+
+    /**
+     * Settings → Plugins: this package's version, its update state and the
+     * version history. The card keeps only one hint line, so the settings page
+     * is the place where updating actually happens.
+     */
+    function SettingsSection() {
+      const snapshot = useStore();
+      const [checking, setChecking] = useState(false);
+      const update = snapshot.update;
+
+      useEffect(() => {
+        loadUpdate(false);
+        loadVersions(false);
+      }, []);
+
+      const check = () => {
+        if (checking) return;
+        setChecking(true);
+        Promise.resolve(loadUpdate(true))
+          .then(() => loadVersions(true))
+          .catch(() => {})
+          .finally(() => setChecking(false));
+      };
+
+      const phase = update?.phase ?? 'idle';
+      const installing = phase === 'installing';
+      const available = update !== null && update.available === true;
+      const current = update?.current ?? '';
+      const modeText =
+        update === null
+          ? ''
+          : update.mode === 'registry'
+            ? L.sourceRegistry
+            : update.mode === 'local'
+              ? L.sourceLocal
+              : update.mode === 'git'
+                ? L.sourceGit
+                : update.mode === 'tarball'
+                  ? L.sourceTarball
+                  : L.sourceUnknown;
+      const statusText =
+        update === null
+          ? L.neverChecked
+          : available
+            ? L.updateReady(update.latest)
+            : update.published === false
+              ? L.notPublished
+              : L.upToDateDesc;
+      const checkedText =
+        update === null || (update.checkedAt ?? 0) === 0
+          ? L.neverChecked
+          : L.lastChecked(clockOf(new Date(update.checkedAt).toISOString()));
+
+      const row = (key, title, desc, control) =>
+        h(
+          'div',
+          { className: 'ogq-set-row', key },
+          h(
+            'div',
+            { className: 'ogq-set-row-text' },
+            h('span', { className: 'ogq-set-row-title' }, title),
+            desc === null || desc === '' ? null : h('span', { className: 'ogq-set-row-desc' }, desc),
+          ),
+          control === null ? null : h('div', { className: 'ogq-set-row-control' }, control),
+        );
+
+      const control =
+        installing
+          ? h('button', { type: 'button', className: 'ogq-btn', disabled: true }, L.updating)
+          : available
+            ? h(
+                'button',
+                { type: 'button', className: 'ogq-btn ogq-btn--primary', onClick: startUpdate },
+                L.updateButton(update.latest),
+              )
+            : h(
+                'button',
+                { type: 'button', className: 'ogq-btn', onClick: check, disabled: checking },
+                checking ? L.checkingNow : L.checkNow,
+              );
+
+      const list = snapshot.versions?.versions ?? [];
+      const history =
+        snapshot.versionsBusy || snapshot.versions === null
+          ? h('div', { className: 'ogq-set-empty' }, L.checkingVersions)
+          : list.length === 0
+            ? h('div', { className: 'ogq-set-empty' }, L.noNotes)
+            : list.slice(0, 12).map((entry) =>
+                h(
+                  'div',
+                  {
+                    className: 'ogq-set-version',
+                    key: entry.version,
+                    'data-current': update !== null && entry.version === update.current ? '1' : null,
+                  },
+                  h(
+                    'div',
+                    { className: 'ogq-set-version-line' },
+                    h('span', { className: 'ogq-set-version-no' }, L.version(entry.version)),
+                    typeof entry.date === 'string' && entry.date !== ''
+                      ? h('span', { className: 'ogq-set-version-date' }, entry.date.slice(0, 10))
+                      : null,
+                    entry.deprecated ? h('span', { className: 'ogq-set-tag' }, entry.deprecated) : null,
+                    update !== null && entry.version === update.current
+                      ? h('span', { className: 'ogq-set-tag' }, L.currentTag)
+                      : null,
+                  ),
+                  Array.isArray(entry.notes) && entry.notes.length > 0
+                    ? h(
+                        'ul',
+                        { className: 'ogq-set-notes' },
+                        entry.notes.map((note, index) => h('li', { key: index }, note)),
+                      )
+                    : h('div', { className: 'ogq-set-empty' }, L.noNotes),
+                ),
+              );
+
+      return h(
+        'div',
+        { className: 'ogq-set', 'data-ogq-settings': '' },
+        h('style', { key: 'css', 'data-ogq': '' }, CSS + SETTINGS_CSS),
+        h('h2', { className: 'ogq-set-title' }, L.settingsTitle),
+        h('p', { className: 'ogq-set-intro' }, L.settingsIntro),
+        h(
+          'div',
+          { className: 'ogq-set-rows' },
+          row(
+            'version',
+            L.rowVersion,
+            modeText,
+            update === null
+              ? h('span', { className: 'ogq-set-empty' }, L.neverChecked)
+              : h(
+                  'span',
+                  { className: 'ogq-set-version-line' },
+                  h('span', { className: 'ogq-set-version-no' }, L.version(current)),
+                  available ? h('span', { className: 'ogq-set-badge' }, L.updateAvailable(update.latest)) : null,
+                ),
+          ),
+          row(
+            'update',
+            L.rowUpdate,
+            phase === 'failed' ? `${L.updateFailed}：${update?.error ?? ''}` : `${statusText} · ${checkedText}`,
+            control,
+          ),
+          phase === 'installed'
+            ? row('installed', L.rowUpdate, L.updateInstalled(update?.installed ?? current), null)
+            : null,
+          row(
+            'source',
+            L.rowSource,
+            typeof update?.repoUrl === 'string' ? update.repoUrl : null,
+            h(
+              'a',
+              {
+                className: 'ogq-link',
+                href: typeof update?.repoUrl === 'string' ? update.repoUrl : 'https://github.com/baobao1994/dsh-opencode-go-remaining',
+                target: '_blank',
+                rel: 'noreferrer noopener',
+              },
+              'GitHub',
+            ),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'ogq-set-history' },
+          h('h3', { className: 'ogq-set-history-title' }, L.versionHistory),
+          history,
+        ),
       );
     }
 
@@ -760,6 +883,17 @@ window.__ModuleLoader__.load({
             ctx.slots.register({ name: 'conversation.input.right', id: 'opencode-go-remaining', order: 20 }, Pill),
           ),
         'opencode-go-remaining: composer pill',
+      );
+
+      ctx.effect(
+        () =>
+          ctx.slots.inject('settings.section', () =>
+            ctx.slots.register(
+              { name: 'settings.section', id: 'opencode-go-remaining.settings', order: 14, label: () => L.settingsLabel },
+              SettingsSection,
+            ),
+          ),
+        'opencode-go-remaining: settings section',
       );
 
       ctx.effect(() => {
