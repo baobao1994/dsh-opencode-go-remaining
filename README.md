@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/icon.png" width="128" height="128" alt="dsh-opencode-go-remaining">
 </p>
 
-# dsh-opencode-go-remaining
+<h1 align="center">dsh-opencode-go-remaining</h1>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/dsh-opencode-go-remaining"><img src="https://img.shields.io/npm/v/dsh-opencode-go-remaining" alt="npm version"></a>

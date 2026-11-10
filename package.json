@@ -1,6 +1,6 @@
 {
   "name": "dsh-opencode-go-remaining",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenCode Go 余量胶囊：在输入框工具行显示最紧张那一档的剩余百分比，点开查看滚动 5 小时 / 每周 / 每月三档余量、重置倒计时，并给 agent 提供 opencode_usage 工具。",
   "type": "module",
   "main": "index.js",
