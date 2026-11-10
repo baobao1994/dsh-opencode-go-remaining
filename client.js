@@ -151,24 +151,29 @@ window.__ModuleLoader__.load({
     /** Active dictionary; replaced in apply() after the language is known. */
     let L = DICT.en;
 
-    /** Pick zh/en from the Client locale service, the document, or navigator. */
-    function detectLanguage(ctx) {
+    /**
+     * The DSH locale id, in the order the Client offers it: the locale service
+     * snapshot (`{ active, locales, revision }`), then `<html lang>` (the shell
+     * keeps it in sync), then the browser.
+     */
+    function localeIdOf(locale) {
       try {
-        const snapshot = ctx?.locale?.getLocale?.();
-        const id =
-          typeof snapshot === 'string'
-            ? snapshot
-            : snapshot?.id ?? snapshot?.locale ?? snapshot?.current ?? snapshot?.lang;
-        if (typeof id === 'string' && id.length > 0) return id.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        const snapshot = locale?.getSnapshot?.() ?? locale?.getLocale?.();
+        const active = typeof snapshot === 'string' ? snapshot : snapshot?.active;
+        if (typeof active === 'string' && active.length > 0) return active;
       } catch {
         // Locale service absent or shaped differently: fall through.
       }
       try {
-        const lang = document.documentElement.getAttribute('lang') || navigator.language || 'en';
-        return String(lang).toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        return document.documentElement.getAttribute('lang') || navigator.language || 'en';
       } catch {
         return 'en';
       }
+    }
+
+    /** Every supported locale id maps onto one of the two dictionaries. */
+    function dictionaryFor(localeId) {
+      return String(localeId).toLowerCase().startsWith('zh') ? DICT.zh : DICT.en;
     }
 
     /* -------------------------------------------------------------- store */
@@ -829,16 +834,35 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------ apply */
 
     /** Required Client services: the slot registry. */
-    const inject = ['slots'];
+    const inject = ['slots', 'locale'];
 
     /**
      * Mount both contributions and the polling loop.
      * @param ctx - Client plugin context carrying `slots` (and usually `locale`).
      */
     function apply(ctx) {
-      L = DICT[detectLanguage(ctx)];
+      L = dictionaryFor(localeIdOf(ctx?.locale));
       load(false);
       loadUpdate(false);
+
+      // Switching the DSH language re-renders every contribution through the store.
+      ctx.effect(() => {
+        const follow = (snapshot) => {
+          const next = dictionaryFor(snapshot?.active ?? localeIdOf(ctx?.locale));
+          if (next === L) return;
+          L = next;
+          setState({});
+        };
+        const locale = ctx?.locale;
+        if (locale === undefined) return () => {};
+        const unsubscribe =
+          typeof locale.subscribe === 'function' ? locale.subscribe(follow) : () => {};
+        // The snapshot at mount time is the authority; a stale one cannot win.
+        follow(locale.getSnapshot?.() ?? undefined);
+        return () => {
+          if (typeof unsubscribe === 'function') unsubscribe();
+        };
+      }, 'opencode-go-remaining: locale');
 
       ctx.effect(() => {
         const timer = setInterval(() => {
