@@ -1,4 +1,6 @@
-![dsh-opencode-go-remaining](https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/icon.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/icon.png" width="128" height="128" alt="dsh-opencode-go-remaining">
+</p>
 
 # dsh-opencode-go-remaining
 
@@ -27,15 +29,16 @@ OpenCode Go 余量插件（DSH / DeepSeek Harness Web UI）。
 
 ## 版本与更新
 
-版本与更新挂在**设置 → 插件**里本插件的那一页，输入框的胶囊不承担这个职责：
+版本与更新在**设置 → 插件 → OpenCode Go 余量**这个标签页里（Plugins 页本身是 DSH 内置的
+插件入口，我们往它里面挂一个自己的标签页）：
 
-![](https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/settings.png)
+![](https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/tab.png)
 
 > 截图里的 `v0.1.1` 是示意用的示例数据。
 
 - **检查更新**：宿主按安装来源去问对应的 registry（默认 npm 官方源，插件管理器配了镜像就跟着走），
   8 秒超时、结果缓存 10 分钟；胶囊的悬浮提示也会带上「可更新 vX.Y.Z」。
-- **更新**：设置页里点「更新到 vX.Y.Z」，走 DSH 插件管理器的 `installBundle` 直接重装，
+- **更新**：标签页里点「更新到 vX.Y.Z」，走 DSH 插件管理器的 `installBundle` 直接重装，
   装完提示「已更新到 vX.Y.Z，重启 DSH 生效」。
 - **版本历史**：按发布时间倒序列出已发布版本，每条附 `CHANGELOG.md` 里的更新说明，
   当前版本打「当前」标签；registry 连不上时退化为只读本地 `CHANGELOG.md`，不会空白。

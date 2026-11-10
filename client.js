@@ -654,11 +654,12 @@ window.__ModuleLoader__.load({
     /* --------------------------------------------------------- settings */
 
     /**
-     * Settings → Plugins: this package's version, its update state and the
-     * version history. The card keeps only one hint line, so the settings page
-     * is the place where updating actually happens.
+     * Settings → Plugins → this plugin's own tab: version, update state and the
+     * version history. The Plugins section owns the nav entry and the tab
+     * chrome; this component is only the page body. The card keeps a single
+     * hint line, so updating happens here.
      */
-    function SettingsSection() {
+    function PluginsTab() {
       const snapshot = useStore();
       const [checking, setChecking] = useState(false);
       const update = snapshot.update;
@@ -774,7 +775,6 @@ window.__ModuleLoader__.load({
         'div',
         { className: 'ogq-set', 'data-ogq-settings': '' },
         h('style', { key: 'css', 'data-ogq': '' }, CSS + SETTINGS_CSS),
-        h('h2', { className: 'ogq-set-title' }, L.settingsTitle),
         h('p', { className: 'ogq-set-intro' }, L.settingsIntro),
         h(
           'div',
@@ -885,15 +885,17 @@ window.__ModuleLoader__.load({
         'opencode-go-remaining: composer pill',
       );
 
+      // The Plugins section hosts one tab per plugin (its own inventory tab
+      // ships order 10), so the version page lives where users look for it.
       ctx.effect(
         () =>
-          ctx.slots.inject('settings.section', () =>
+          ctx.slots.inject('settings.plugins.tab', () =>
             ctx.slots.register(
-              { name: 'settings.section', id: 'opencode-go-remaining.settings', order: 14, label: () => L.settingsLabel },
-              SettingsSection,
+              { name: 'settings.plugins.tab', id: 'opencode-go-remaining', order: 20, label: () => L.settingsLabel },
+              PluginsTab,
             ),
           ),
-        'opencode-go-remaining: settings section',
+        'opencode-go-remaining: plugins tab',
       );
 
       ctx.effect(() => {
