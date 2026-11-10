@@ -1,3 +1,5 @@
+![dsh-opencode-go-remaining](https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/icon.png)
+
 # dsh-opencode-go-remaining
 
 [![npm version](https://img.shields.io/npm/v/dsh-opencode-go-remaining)](https://www.npmjs.com/package/dsh-opencode-go-remaining)
@@ -110,7 +112,7 @@ dsh plugin --profile web add dsh-opencode-go-remaining
 | `CHANGELOG.md` | 更新日志；卡里的版本历史直接读它 |
 | `locale/{en,zh}.json` | 插件管理页的标题与描述 |
 | `icon.svg` | 插件图标 |
-| `docs/img/` | README 截图 |
+| `docs/img/` | README 用的图标与截图（`icon.png` 由 `icon.svg` 渲染） |
 
 ## License
 
