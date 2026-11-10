@@ -24,6 +24,7 @@
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { createUpdater } from './update.js'
 
 /** Stable cordis plugin name. */
 export const name = 'opencode-go-remaining'
@@ -45,6 +46,12 @@ const CREDENTIAL_NAME = 'OPENCODE_GO_API_KEY'
 
 /** Exact path the browser half fetches (spelled identically in client.js). */
 const USAGE_API = '/api/opencode-go-remaining/usage'
+
+/** Version status: GET reads it, POST starts the reinstall. */
+const UPDATE_API = '/api/opencode-go-remaining/update'
+
+/** Published versions plus the packaged changelog, for the card's history list. */
+const VERSIONS_API = '/api/opencode-go-remaining/versions'
 
 /** Attribution header sent with every upstream request. */
 const USER_AGENT = 'dsh-opencode-go-remaining/0.1.0'
@@ -360,6 +367,16 @@ function usageTool(ctx, getConfig) {
  */
 export function apply(ctx, config) {
   const getConfig = () => config
+  const updater = createUpdater({
+    ctx,
+    warn: (message) => {
+      try {
+        ctx.logger?.warn?.(message)
+      } catch {
+        // A missing logger must not break an update check.
+      }
+    },
+  })
 
   ctx.effect(
     () =>
@@ -393,6 +410,70 @@ export function apply(ctx, config) {
         },
       }),
     'opencode-go-remaining: usage route',
+  )
+
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: UPDATE_API,
+        handler: async (req, res) => {
+          if (!isLoopbackRequest(req)) {
+            writeJson(res, 403, { success: false, error: 'forbidden: loopback-only' })
+            return
+          }
+          let fresh = false
+          try {
+            fresh = new URL(req.url ?? '/', 'http://dsh.internal').searchParams.get('fresh') === '1'
+          } catch {
+            fresh = false
+          }
+          try {
+            if (req.method === 'GET') {
+              writeJson(res, 200, await updater.check({ fresh }))
+              return
+            }
+            if (req.method === 'POST') {
+              writeJson(res, 200, updater.start())
+              return
+            }
+            writeJson(res, 405, { success: false, error: 'method not allowed' })
+          } catch (error) {
+            writeJson(res, 200, { success: false, error: String(error?.message ?? error) })
+          }
+        },
+      }),
+    'opencode-go-remaining: update route',
+  )
+
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: VERSIONS_API,
+        handler: async (req, res) => {
+          if (!isLoopbackRequest(req)) {
+            writeJson(res, 403, { success: false, error: 'forbidden: loopback-only' })
+            return
+          }
+          if (req.method !== 'GET') {
+            writeJson(res, 405, { success: false, error: 'method not allowed' })
+            return
+          }
+          let fresh = false
+          try {
+            fresh = new URL(req.url ?? '/', 'http://dsh.internal').searchParams.get('fresh') === '1'
+          } catch {
+            fresh = false
+          }
+          try {
+            writeJson(res, 200, { success: true, ...(await updater.versions({ fresh })) })
+          } catch (error) {
+            writeJson(res, 200, { success: false, error: String(error?.message ?? error) })
+          }
+        },
+      }),
+    'opencode-go-remaining: versions route',
   )
 
   ctx.effect(() => {

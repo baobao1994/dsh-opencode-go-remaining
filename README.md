@@ -23,6 +23,23 @@ OpenCode Go 余量插件（DSH / DeepSeek Harness Web UI）。
 > 截图由同一份 `client.js` 在独立 Chromium 里渲染（真实 React 18 + 同样的 slot 注册），
 > 配色取自 DSH 的 `--dsw-alias-*` 令牌，因此深浅色主题都与宿主一致。
 
+## 版本与更新
+
+明细卡底部常驻一行版本号，点开是版本历史：
+
+![](https://raw.githubusercontent.com/baobao1994/dsh-opencode-go-remaining/main/docs/img/version-history.png)
+
+> 截图里的 `v0.1.1` 是示意用的示例数据。
+
+- **检查更新**：宿主按安装来源去问对应的 registry（默认 npm 官方源，插件管理器配了镜像就跟着走），
+  8 秒超时、结果缓存 10 分钟；胶囊的悬浮提示也会带上「可更新 vX.Y.Z」。
+- **更新**：卡里点「更新到 vX.Y.Z」，走 DSH 插件管理器的 `installBundle` 直接重装，
+  装完提示「已更新到 vX.Y.Z，重启 DSH 生效」。
+- **版本历史**：按发布时间倒序列出已发布版本，每条附 `CHANGELOG.md` 里的更新说明，
+  当前版本打「当前」标签；registry 连不上时退化为只读本地 `CHANGELOG.md`，不会空白。
+- **本地安装不提示更新**：`link:` / 文件夹安装显示「本地安装（git pull 更新）」——
+  这种安装的更新源是那个目录，不是 registry。
+
 ## 颜色与刷新
 
 胶囊只报**最紧张那一档**，按剩余量着色：
@@ -65,7 +82,7 @@ dsh plugin --profile web add dsh-opencode-go-remaining
 
 本地开发时，在 DSH 里用 `plugin_manager` 的 `install_bundle`，`target` 填本目录绝对路径。
 
-安装后无需重启：宿主半侧注册 `/api/opencode-go-remaining/usage` 路由与工具，
+安装后无需重启：宿主半侧注册 `/api/opencode-go-remaining/usage`、`/update`、`/versions` 三条路由与工具，
 浏览器半侧注册 `conversation.input.right`（胶囊）与 `shell.overlay`（明细卡）两个 slot。
 
 ## 配置
@@ -86,7 +103,9 @@ dsh plugin --profile web add dsh-opencode-go-remaining
 |---|---|
 | `index.js` | 宿主半侧：key 解析、用量抓取与缓存、loopback 路由、`opencode_usage` 工具 |
 | `client.js` | 浏览器半侧：胶囊 + 明细卡（React，无 DOM 劫持） |
+| `update.js` | 版本检查、registry 查询、版本历史与一键更新（走插件管理器的 `installBundle`） |
 | `cordis.patch.yml` | bundle 补丁，插入一行宿主插件 |
+| `CHANGELOG.md` | 更新日志；卡里的版本历史直接读它 |
 | `locale/{en,zh}.json` | 插件管理页的标题与描述 |
 | `icon.svg` | 插件图标 |
 | `docs/img/` | README 截图 |

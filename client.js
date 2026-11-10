@@ -30,6 +30,10 @@ window.__ModuleLoader__.load({
 
     /** Host route spelling (identical in index.js). */
     const USAGE_API = '/api/opencode-go-remaining/usage';
+    /** Version status; POST starts the reinstall. */
+    const UPDATE_API = '/api/opencode-go-remaining/update';
+    /** Published versions plus the packaged changelog. */
+    const VERSIONS_API = '/api/opencode-go-remaining/versions';
     /** Windows in display order. */
     const WINDOWS = ['rolling', 'weekly', 'monthly'];
     /** Poll cadence while the page is visible. */
@@ -54,6 +58,21 @@ window.__ModuleLoader__.load({
         retry: '重试',
         empty: '暂无数据',
         pillTitle: (parts) => `OpenCode Go 余量 · ${parts}`,
+        version: (value) => `v${value}`,
+        versionsTitle: '版本历史',
+        checkingVersions: '正在读取版本…',
+        upToDate: '已是最新',
+        updateAvailable: (value) => `可更新 v${value}`,
+        updateTo: (value) => `更新到 v${value}`,
+        updating: '更新中…',
+        updateInstalled: (value) => `已更新到 v${value}，重启 DSH 生效`,
+        updateFailed: '更新失败',
+        localInstall: '本地安装（git pull 更新）',
+        gitInstall: 'Git 安装（git pull 更新）',
+        notPublished: '尚未发布到 npm',
+        noNotes: '无更新说明',
+        currentTag: '当前',
+        releases: '发布记录',
       },
       en: {
         title: 'OpenCode Go quota',
@@ -69,6 +88,21 @@ window.__ModuleLoader__.load({
         retry: 'Retry',
         empty: 'No data',
         pillTitle: (parts) => `OpenCode Go quota · ${parts}`,
+        version: (value) => `v${value}`,
+        versionsTitle: 'Versions',
+        checkingVersions: 'Reading versions…',
+        upToDate: 'Up to date',
+        updateAvailable: (value) => `v${value} available`,
+        updateTo: (value) => `Update to v${value}`,
+        updating: 'Updating…',
+        updateInstalled: (value) => `Updated to v${value}. Restart DSH.`,
+        updateFailed: 'Update failed',
+        localInstall: 'Local install (git pull)',
+        gitInstall: 'Git install (git pull)',
+        notPublished: 'Not published to npm yet',
+        noNotes: 'No notes',
+        currentTag: 'current',
+        releases: 'Releases',
       },
     };
 
@@ -106,6 +140,12 @@ window.__ModuleLoader__.load({
       busy: false,
       open: false,
       anchor: null,
+      /** Host answer about this package's version: { current, latest, available, ... }. */
+      update: null,
+      /** Version list + notes, fetched when the history opens. */
+      versions: null,
+      versionsOpen: false,
+      versionsBusy: false,
     };
 
     function getState() {
@@ -167,6 +207,96 @@ window.__ModuleLoader__.load({
           inflight = null;
         });
       return inflight;
+    }
+
+    /* --------------------------------------------------- versions / update */
+
+    let updateInflight = null;
+
+    /** Ask the host whether a newer release exists (the host caches its answer). */
+    function loadUpdate(force) {
+      if (updateInflight !== null) return updateInflight;
+      updateInflight = fetch(UPDATE_API + (force === true ? '?fresh=1' : ''), {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+      })
+        .then((response) => response.json())
+        .then((body) => {
+          if (body === null || typeof body !== 'object' || body.success === false) return;
+          setState({ update: body });
+        })
+        .catch(() => {
+          // A failed check never breaks the card: it keeps the last answer.
+        })
+        .finally(() => {
+          updateInflight = null;
+        });
+      return updateInflight;
+    }
+
+    let versionsInflight = null;
+
+    /** Load the published versions and their notes. */
+    function loadVersions(force) {
+      if (versionsInflight !== null) return versionsInflight;
+      setState({ versionsBusy: true });
+      versionsInflight = fetch(VERSIONS_API + (force === true ? '?fresh=1' : ''), {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+      })
+        .then((response) => response.json())
+        .then((body) => {
+          if (body === null || typeof body !== 'object' || body.success === false) {
+            throw new Error(body?.error ?? 'versions request failed');
+          }
+          setState({ versions: body, versionsBusy: false });
+        })
+        .catch(() => setState({ versions: { versions: [] }, versionsBusy: false }))
+        .finally(() => {
+          versionsInflight = null;
+        });
+      return versionsInflight;
+    }
+
+    /** Open or close the version history, fetching it the first time. */
+    function toggleVersions() {
+      const open = !getState().versionsOpen;
+      setState({ versionsOpen: open });
+      if (!open) return;
+      if (getState().update === null) loadUpdate(false);
+      if (getState().versions === null) loadVersions(false);
+    }
+
+    let updatePoll = null;
+
+    /** Reinstall the newest release, then follow the answer until it settles. */
+    function startUpdate() {
+      const current = getState().update;
+      if (current === null || current.available !== true) return;
+      setState({ update: { ...current, phase: 'installing', error: null } });
+      fetch(UPDATE_API, { method: 'POST', headers: { accept: 'application/json' }, cache: 'no-store' })
+        .then((response) => response.json())
+        .then((body) => {
+          if (body === null || typeof body !== 'object' || body.success === false) {
+            throw new Error(body?.error ?? 'update request failed');
+          }
+          setState({ update: body });
+        })
+        .catch((error) => {
+          setState({ update: { ...getState().update, phase: 'failed', error: String(error?.message ?? error) } });
+        });
+      if (updatePoll !== null) clearInterval(updatePoll);
+      let ticks = 0;
+      updatePoll = setInterval(() => {
+        ticks += 1;
+        const snapshot = getState();
+        if (snapshot.update === null || snapshot.update.phase !== 'installing' || ticks > 40) {
+          clearInterval(updatePoll);
+          updatePoll = null;
+          return;
+        }
+        loadUpdate(true);
+      }, 1500);
     }
 
     /* --------------------------------------------------------- formatting */
@@ -270,7 +400,37 @@ window.__ModuleLoader__.load({
       'font-variant-numeric:tabular-nums}' +
       '.ogq-foot{margin-top:8px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1);' +
       'color:var(--dsw-alias-label-secondary);font-size:11px;display:flex;justify-content:space-between;gap:8px}' +
-      '.ogq-error{color:var(--dsw-alias-state-error-primary);word-break:break-word;padding:2px 0 6px}';
+      '.ogq-error{color:var(--dsw-alias-state-error-primary);word-break:break-word;padding:2px 0 6px}' +
+      '.ogq-vers{margin-top:6px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l1);' +
+      'display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;' +
+      'color:var(--dsw-alias-label-secondary);font-size:11px;border-radius:6px}' +
+      '.ogq-vers:hover{color:var(--dsw-alias-label-primary)}' +
+      '.ogq-vers-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '.ogq-vers-go{flex:none;opacity:.75;font-size:12px;line-height:1}' +
+      '.ogq-vers[data-tone="update"] .ogq-vers-text{color:var(--dsw-alias-state-success-primary);font-weight:600}' +
+      '.ogq-vers[data-tone="error"] .ogq-vers-text{color:var(--dsw-alias-state-error-primary)}' +
+      '.ogq-history{margin-top:4px;padding-top:6px;border-top:1px solid var(--dsw-alias-border-l1);' +
+      'max-height:236px;overflow-y:auto;overscroll-behavior:contain}' +
+      '.ogq-history-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px}' +
+      '.ogq-history-title{font-size:11px;font-weight:600}' +
+      '.ogq-history-empty{color:var(--dsw-alias-label-secondary);font-size:11px;padding:4px 0}' +
+      '.ogq-update-busy{font-size:11px;color:var(--dsw-alias-label-secondary)}' +
+      '.ogq-update{border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:1px 8px;' +
+      'background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;cursor:pointer}' +
+      '.ogq-update:hover{background:var(--dsw-alias-bg-layer-2)}' +
+      '.ogq-version-list{list-style:none;margin:0;padding:0}' +
+      '.ogq-version{padding:5px 0;border-top:1px dashed var(--dsw-alias-border-l1)}' +
+      '.ogq-version:first-child{border-top:none;padding-top:2px}' +
+      '.ogq-version-line{display:flex;align-items:baseline;gap:6px}' +
+      '.ogq-version-no{font-size:11px;font-weight:600}' +
+      '.ogq-version-date{color:var(--dsw-alias-label-secondary);font-size:10px;font-variant-numeric:tabular-nums}' +
+      '.ogq-version-tag{margin-left:auto;font-size:9px;line-height:1.4;padding:0 5px;border-radius:999px;' +
+      'border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}' +
+      '.ogq-version[data-current="1"] .ogq-version-no{color:var(--dsw-alias-state-success-primary)}' +
+      '.ogq-notes{margin:2px 0 0;padding-left:13px;color:var(--dsw-alias-label-secondary);' +
+      'font-size:10.5px;line-height:1.45}' +
+      '.ogq-notes li{margin:1px 0}' +
+      '.ogq-notes-empty{padding-left:0;opacity:.7}';
 
     /* ------------------------------------------------------------ pill */
 
@@ -285,8 +445,14 @@ window.__ModuleLoader__.load({
         const rect = event.currentTarget.getBoundingClientRect();
         const open = !snapshot.open;
         setState({ open, anchor: open ? { right: rect.right, top: rect.top } : null });
-        if (open) load(true);
+        if (open) {
+          load(true);
+          loadUpdate(false);
+        }
       };
+
+      const updateHint =
+        snapshot.update !== null && snapshot.update.available === true ? ` · ${L.updateAvailable(snapshot.update.latest)}` : '';
 
       return h(
         React.Fragment,
@@ -301,7 +467,7 @@ window.__ModuleLoader__.load({
             'data-ogq-pill': '',
             'aria-expanded': snapshot.open ? 'true' : 'false',
             'aria-label': L.title,
-            title: hoverSummary(snapshot.data),
+            title: hoverSummary(snapshot.data) + updateHint,
             onClick,
           },
           h('span', { className: 'ogq-dot', style: { background: color } }),
@@ -345,6 +511,133 @@ window.__ModuleLoader__.load({
           h('span', { className: 'ogq-row-value', style: { color } }, left === null ? '—' : `${left}%`),
         ),
         note === '' ? null : h('span', { className: 'ogq-row-note' }, note),
+      );
+    }
+
+    /** One line under the numbers: this package's version and its update state. */
+    function VersionRow({ snapshot }) {
+      const update = snapshot.update;
+      if (update === null) return null;
+      const phase = update.phase;
+      const text =
+        phase === 'installing'
+          ? L.updating
+          : phase === 'installed'
+            ? L.updateInstalled(update.installed ?? update.current)
+            : phase === 'failed'
+              ? `${L.updateFailed}：${update.error ?? ''}`
+              : update.mode === 'local'
+                ? L.localInstall
+                : update.mode === 'git'
+                  ? L.gitInstall
+                  : update.available === true
+                    ? L.updateAvailable(update.latest)
+                    : update.published === false
+                      ? L.notPublished
+                      : L.upToDate;
+      const tone =
+        update.available === true && (phase === 'idle' || phase === 'installed')
+          ? 'update'
+          : phase === 'failed'
+            ? 'error'
+            : 'plain';
+      const toggle = () => toggleVersions();
+      return h(
+        'div',
+        {
+          className: 'ogq-vers',
+          'data-ogq-vers': '',
+          'data-tone': tone,
+          role: 'button',
+          tabIndex: 0,
+          'aria-expanded': snapshot.versionsOpen ? 'true' : 'false',
+          title: L.versionsTitle,
+          onClick: (event) => {
+            event.stopPropagation();
+            toggle();
+          },
+          onKeyDown: (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggle();
+            }
+          },
+        },
+        h('span', { className: 'ogq-vers-text' }, `${L.version(update.current)} · ${text}`),
+        h('span', { className: 'ogq-vers-go' }, snapshot.versionsOpen ? '▾' : '›'),
+      );
+    }
+
+    /** The expanded history: newest first, with the changelog notes and one update button. */
+    function History({ snapshot }) {
+      if (!snapshot.versionsOpen) return null;
+      const update = snapshot.update;
+      const list = snapshot.versions?.versions ?? [];
+      const installing = update !== null && update.phase === 'installing';
+      const canUpdate = update !== null && update.available === true && !installing;
+      return h(
+        'div',
+        { className: 'ogq-history', 'data-ogq-history': '' },
+        h(
+          'div',
+          { className: 'ogq-history-head' },
+          h('span', { className: 'ogq-history-title' }, L.versionsTitle),
+          installing
+            ? h('span', { className: 'ogq-update-busy' }, L.updating)
+            : canUpdate
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'ogq-update',
+                    onClick: (event) => {
+                      event.stopPropagation();
+                      startUpdate();
+                    },
+                  },
+                  L.updateTo(update.latest),
+                )
+              : null,
+        ),
+        update !== null && update.phase === 'failed'
+          ? h('div', { className: 'ogq-error' }, `${L.updateFailed}：${update.error ?? ''}`)
+          : null,
+        snapshot.versionsBusy || snapshot.versions === null
+          ? h('div', { className: 'ogq-history-empty' }, L.checkingVersions)
+          : list.length === 0
+            ? h('div', { className: 'ogq-history-empty' }, L.noNotes)
+            : h(
+                'ul',
+                { className: 'ogq-version-list' },
+                list.slice(0, 8).map((entry) =>
+                  h(
+                    'li',
+                    {
+                      key: entry.version,
+                      className: 'ogq-version',
+                      'data-current': update !== null && entry.version === update.current ? '1' : null,
+                    },
+                    h(
+                      'div',
+                      { className: 'ogq-version-line' },
+                      h('b', { className: 'ogq-version-no' }, L.version(entry.version)),
+                      typeof entry.date === 'string' && entry.date !== ''
+                        ? h('span', { className: 'ogq-version-date' }, entry.date.slice(0, 10))
+                        : null,
+                      update !== null && entry.version === update.current
+                        ? h('span', { className: 'ogq-version-tag' }, L.currentTag)
+                        : null,
+                    ),
+                    Array.isArray(entry.notes) && entry.notes.length > 0
+                      ? h(
+                          'ul',
+                          { className: 'ogq-notes' },
+                          entry.notes.map((note, index) => h('li', { key: index }, note)),
+                        )
+                      : h('div', { className: 'ogq-notes ogq-notes-empty' }, L.noNotes),
+                  ),
+                ),
+              ),
       );
     }
 
@@ -405,6 +698,8 @@ window.__ModuleLoader__.load({
           h('span', null, typeof data?.source === 'string' ? L.via(data.source) : ''),
           h('span', null, fetched === '' ? '' : L.updated(fetched)),
         ),
+        h(VersionRow, { snapshot }),
+        h(History, { snapshot }),
       );
     }
 
@@ -420,6 +715,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       L = DICT[detectLanguage(ctx)];
       load(false);
+      loadUpdate(false);
 
       ctx.effect(() => {
         const timer = setInterval(() => {
@@ -448,6 +744,10 @@ window.__ModuleLoader__.load({
 
         return () => {
           clearInterval(timer);
+          if (updatePoll !== null) {
+            clearInterval(updatePoll);
+            updatePoll = null;
+          }
           document.removeEventListener('visibilitychange', onVisible);
           document.removeEventListener('pointerdown', onPointerDown, true);
           document.removeEventListener('keydown', onKeyDown, true);
