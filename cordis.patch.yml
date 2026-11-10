@@ -1,0 +1,6 @@
+# Bundle patch for dsh-opencode-go-remaining.
+# The client half is declared in package.json (`dsh.client`) and served by the
+# Host module loader; this row only mounts the Host half (usage route + tool).
+- insert:
+    - id: opencode-go-remaining
+      name: 'dsh-opencode-go-remaining'

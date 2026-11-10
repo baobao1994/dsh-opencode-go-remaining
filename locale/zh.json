@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OpenCode Go 余量",
+    "description": "在输入框工具行常驻一枚余量胶囊，显示最紧张那一档的剩余百分比；点开可看滚动 5 小时 / 每周 / 每月三档的剩余量与重置倒计时，并给 agent 提供 opencode_usage 工具。"
+  }
+}

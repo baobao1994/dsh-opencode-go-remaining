@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OpenCode Go quota",
+    "description": "Shows the remaining OpenCode Go quota as a pill in the composer: the window closest to running out, with a detail card for the rolling 5h / weekly / monthly windows and an opencode_usage tool for the agent."
+  }
+}
