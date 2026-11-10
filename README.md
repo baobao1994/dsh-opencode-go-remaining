@@ -4,10 +4,12 @@
 
 # dsh-opencode-go-remaining
 
-[![npm version](https://img.shields.io/npm/v/dsh-opencode-go-remaining)](https://www.npmjs.com/package/dsh-opencode-go-remaining)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-green.svg)](https://nodejs.org)
-[![dsh](https://img.shields.io/badge/DSH-Web%20UI-4f46e5.svg)](https://github.com/baobao1994)
+<p align="center">
+  <a href="https://www.npmjs.com/package/dsh-opencode-go-remaining"><img src="https://img.shields.io/npm/v/dsh-opencode-go-remaining" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-green.svg" alt="node"></a>
+  <a href="https://github.com/baobao1994/dsh-opencode-go-remaining"><img src="https://img.shields.io/badge/DSH-Web%20UI-4f46e5.svg" alt="dsh"></a>
+</p>
 
 OpenCode Go 余量插件（DSH / DeepSeek Harness Web UI）。
 
